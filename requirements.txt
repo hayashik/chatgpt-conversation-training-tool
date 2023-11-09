@@ -1,0 +1,6 @@
+flask
+gunicorn
+openai
+jsonify
+google-cloud-texttospeech
+flask_cors

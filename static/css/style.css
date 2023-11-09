@@ -1,0 +1,55 @@
+body {
+    max-width: 100%;
+    margin: 0 auto; /* 中央揃え */
+    padding: 10px; /* 余白を追加 */
+}
+
+.container {
+    max-width: 80%; /* コンテンツの最大幅を設定 */
+    margin: 0 auto; /* 中央揃え */
+}
+
+.button{
+    text-align: center;
+    width: 200px;
+    font-size: 1.6em;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #68779a;
+    background: #cbe8fa;
+    border-radius: 3px;
+}
+
+.field1{
+    text-align: center ;
+    font-size: 1.8em;
+    border: 1px solid #999;
+    padding: 10px;
+    background: #fff9cc;
+    margin-top:10px;
+}
+
+.field2{
+    text-align: left ;
+    font-size: 1.8em;
+    border: 1px solid #999;
+    padding: 10px;
+    background: #fff9cc;
+    margin-top:10px;
+}
+
+.field3{
+    text-align: center ;
+    font-size: 1.8em;
+    border: 1px solid #999;
+    padding: 10px;
+    background: #0cbe89;
+    margin-top:10px;
+}
+.field4{
+    text-align: left ;
+    font-size: 0.5em;
+    border: 1px solid #999;
+    padding: 10px;
+    margin-top:10px;
+}
