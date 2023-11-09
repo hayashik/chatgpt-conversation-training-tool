@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TUT English tool experiment</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css";; rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js";></script>
+
+    <script>
+        $(document).ready(function() {
+
+            var savedUsername = localStorage.getItem('username');
+            if (savedUsername) {
+                $('#username').val(savedUsername);
+            }
+
+            var audioUrl = null; // Declare audioUrl here
+            var audioElement = new Audio();
+            var isPlaying = false;
+            //var recognition = null; // Declare recognition here
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+            //recognition.timeout = 5000; // タイムアウトを5秒に設定
+
+            recognition.onstart = function() {
+                console.log('Recording started...');
+            };
+
+            recognition.onresult  = (event) => {
+                for (var i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        var result = event.results[i][0].transcript; 
+                        console.log('Recognized: ' + result);
+                        $('#transcription').html(result);
+                        $('#response').html('Now receiving...');
+
+                        $.ajax({
+                            url: '/chat',
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ text: result, username: $('#username').val() }),
+                            success: function(response) {
+                                // Decode the base64 audio and play it
+                                let audioData = atob(response.audio);
+                                let audioArray = new Uint8Array(audioData.length);
+                                for (let i = 0; i < audioData.length; ++i) {
+                                    audioArray[i] = audioData.charCodeAt(i);
+                                }
+                                let audioBlob = new Blob([audioArray], {type: 'audio/mp3'});
+                                audioUrl = URL.createObjectURL(audioBlob);
+                                // Display the text
+                                $('#response').html(response.text);
+                            }
+                        });
+                    }
+                }
+                
+            };
+
+            recognition.onend = () => {
+                console.log('Recording ended.');
+                recognition.stop();
+            };
+
+            $('#recordButton').click(function() {
+                var username = $('#username').val();
+                localStorage.setItem('username', username);
+                console.log('Username: ' + username);
+                if (recognition) {
+                    recognition.start();
+                } else {
+                    console.log('音声認識はこのブラウザではサポートされていません。');
+                }
+            });
+            $('#recordstopButton').click(function() {
+                if (recognition) {
+                    recognition.stop();
+                } else {
+                    console.log('音声認識はこのブラウザではサポートされていません。');
+                }
+            });
+
+            $('#playButton').click(function() {
+                if (!isPlaying) {
+                    console.log(audioUrl);
+                    audioElement.src = audioUrl;
+                    audioElement.play();
+                    isPlaying = true;
+                    $('#playButton').text('Stop Response'); // ボタンのテキストを"Stop"に変更
+                } else {
+                    audioElement.pause(); // 再生を停止
+                    audioElement.currentTime = 0; // 再生位置をリセット
+                    isPlaying = false;
+                    $('#playButton').text('Play Response'); // ボタンのテキストを"Play"に変更
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Conversation Training</h1>
+        <div class="field3">
+            <h2>Username</h2>
+            <input type="text" id="username" placeholder="Enter your username">
+        </div>
+
+        <div class="field1">
+            <button id="recordButton" class="button" type="button">Speak Start</button>
+            
+            <button id="recordstopButton" class="button" type="button">Speak end</button>
+            <p>Speak endボタンはsafari用です</p>
+        </div>
+        <h2>Recognition Result</h2>
+        <div id="transcription" class="field2"></div>
+        <h2>Answer Result</h2>
+        <div id="response" class="field2"></div>
+        <div class="field1">
+            <button id="playButton" class="button" type="button">Play Response</button>
+        </div>
+
+    <div class="field4">
+        <h4>更新履歴</h4>
+        <ul>
+            <li>2023年8月26日: 【お知らせ】固有名詞、特に外国語由来の単語の聞き取りは音声認識の限界があります。ご留意ください</li>
+            <li>2023年8月17日: Play Responseを途中で止められるようにしました</li>
+            <li>2023年8月10日: 通信中エラーに関するメッセージを出すようにしました</li>
+            <li>2023年8月4日: Safari16.5.2対応</li>
+        </ul>
+    </div>
+</div>
+</body>
+</html>
