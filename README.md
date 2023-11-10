@@ -63,3 +63,4 @@ Press CTRL+C to quit
 2. Copy these files to your Heroku repository and deploy them.
 
 3. Please open the URL in your browser.
+https://[your Heroku app name].herokuapp.com/
