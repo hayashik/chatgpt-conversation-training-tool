@@ -1,6 +1,6 @@
 flask
 gunicorn
-openai
+openai==0.28.1
 jsonify
 google-cloud-texttospeech
 flask_cors
