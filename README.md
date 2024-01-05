@@ -33,7 +33,7 @@ cd your-repository
 4. Get the JSON file of Google Cloud API:
 [Google Cloud](https://cloud.google.com/iam/docs/keys-create-delete?hl=en)
 
-5. Rename the JSON file to *gtts.json* and put it into repository folder.
+5. Rename the JSON file to *gtts.json* and put it into the repository folder.
 
 ### Running Locally
 If you want to use it in your local network, please ask the Network Administrator of your office.

@@ -11,28 +11,30 @@
     <script>
         $(document).ready(function() {
 
+            // Retrieve the username from local storage and set it in the input field
             var savedUsername = localStorage.getItem('username');
             if (savedUsername) {
                 $('#username').val(savedUsername);
             }
 
-            var audioUrl = null; // Declare audioUrl here
-            var audioElement = new Audio();
-            var isPlaying = false;
-            //var recognition = null; // Declare recognition here
+            var audioUrl = null;            // Variable to store the URL of the audio file
+            var audioElement = new Audio(); // Instance of the Audio element
+            var isPlaying = false;          // Variable to determine if audio is playing
 
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             const recognition = new SpeechRecognition();
 
+            // Configuration for speech recognition
             recognition.continuous = true;
             recognition.interimResults = false;
             recognition.lang = 'en-US';
-            //recognition.timeout = 5000; // タイムアウトを5秒に設定
 
+            // Event handler when speech recognition starts
             recognition.onstart = function() {
                 console.log('Recording started...');
             };
 
+            // Event handler for speech recognition results
             recognition.onresult  = (event) => {
                 for (var i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
@@ -41,13 +43,14 @@
                         $('#transcription').html(result);
                         $('#response').html('Now receiving...');
 
+                        // Send the audio data to the server and get the response
                         $.ajax({
                             url: '/chat',
                             type: 'POST',
                             contentType: 'application/json',
                             data: JSON.stringify({ text: result, username: $('#username').val() }),
                             success: function(response) {
-                                // Decode the base64 audio and play it
+                                // Convert the base64 audio from the server to playable format
                                 let audioData = atob(response.audio);
                                 let audioArray = new Uint8Array(audioData.length);
                                 for (let i = 0; i < audioData.length; ++i) {
@@ -55,7 +58,7 @@
                                 }
                                 let audioBlob = new Blob([audioArray], {type: 'audio/mp3'});
                                 audioUrl = URL.createObjectURL(audioBlob);
-                                // Display the text
+                                // Display the text response from the server
                                 $('#response').html(response.text);
                             }
                         });
@@ -64,11 +67,13 @@
                 
             };
 
+            // Event handler when speech recognition ends
             recognition.onend = () => {
                 console.log('Recording ended.');
                 recognition.stop();
             };
 
+            // Event handler when "Speak Start" button is clicked
             $('#recordButton').click(function() {
                 var username = $('#username').val();
                 localStorage.setItem('username', username);
@@ -93,7 +98,7 @@
                     audioElement.src = audioUrl;
                     audioElement.play();
                     isPlaying = true;
-                    $('#playButton').text('Stop Response'); // ボタンのテキストを"Stop"に変更
+                    $('#playButton').text('Stop Response'); // Change the button text to "Stop Response."
                 } else {
                     audioElement.pause(); // 再生を停止
                     audioElement.currentTime = 0; // 再生位置をリセット
