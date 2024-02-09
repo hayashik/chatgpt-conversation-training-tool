@@ -27,6 +27,9 @@ cd your-repository
 
 6. Rename the JSON file to *gtts.json* and put it into the folder.
 
+7. Get ngrok token:
+[ngrok](https://ngrok.com/)
+
 ### Running 
 Open peda-chatbot-interview.ipynb and run
 
