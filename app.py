@@ -1,5 +1,4 @@
-
-# Initialize Flask application
+from pyngrok import ngrok, conf
 from flask import Flask, render_template, request, jsonify, send_file
 from google.cloud import texttospeech
 import openai
@@ -11,46 +10,42 @@ import uuid
 import base64
 from flask_cors import cross_origin
 from openai.error import RateLimitError
-import logging
-import api_keys
+import api_keys 
 
-# Initialize Flask application
+# ngrokトークンを設定
+conf.get_default().auth_token = api_keys.ngrok_token
+
 app = Flask(__name__)
+#run_with_ngrok(app)
+logs = {}  # ユーザーネームをキー、ログを値とする辞書
+assistant_logs = {}  # Assistantの応答内容をユーザー名をキーとして保持する辞書
 
-# Dictionaries to store logs
-logs = {}  # A dictionary with usernames as keys and logs as values.
-assistant_logs = {}  # A dictionary that retains Assistant's response content with usernames as keys.
-
-# Specify the path to the service account key file.
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gtts.json"
+# サービスアカウントキーファイルへのパスを指定します。
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./peda_chatbot_interview/gtts.json"
 
 # Instantiates a client
 client = texttospeech.TextToSpeechClient()
 
-# Set OpenAI API key
+logging.basicConfig(
+    filename="./peda_chatbot_interview/app.log",
+    level=logging.DEBUG,
+    force=True)
+
 openai.api_key = api_keys.openai_key
 
-# System-wide variables
 EXIT_PHRASE = 'exit'
 
-# Initial user message
 messages = [
     {'role': 'system', 'content': 'You are a helpful assistant.'},
     {'role': 'user', 'content': f'just return {EXIT_PHRASE} only'}
 ]
 
-# Set up logging
+# get instance of logger and set log severity as defined by the cli parameter
 gunicorn_logger = logging.getLogger('gunicorn.error')
 app.logger.handlers = gunicorn_logger.handlers
 app.logger.setLevel(gunicorn_logger.level)
 
 def synthesize_text(text):
-    '''
-    Function to synthesize text to speech using Google Text-to-Speech API
-    text: text from ChatGPT
-
-    return: audio file
-    '''
     # Instantiates a client
     client = texttospeech.TextToSpeechClient()
 
@@ -77,19 +72,17 @@ def synthesize_text(text):
     # Return the binary audio file.
     return response.audio_content
 
-# Route for the home page
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# Route to recognize audio using OpenAI API
 @app.route('/recognize', methods=['POST'])
 def recognize():
     audio = request.files['audio']
     transcription = openai.Audio.transcribe('whisper-1', audio)
     return transcription['text']
 
-# Route for the chat functionality
 @app.route('/chat', methods=['POST'])
 @cross_origin()  # This will enable CORS for the /chat route only
 def chat():
@@ -99,7 +92,6 @@ def chat():
     username = data.get('username')
     #print("Username python: {}".format(username))    
 
-    # Check if username is provided
     if username is None or username.strip() == '':
         audio_base64 = base64.b64encode(synthesize_text("input username")).decode('utf-8')
         return jsonify({
@@ -107,21 +99,20 @@ def chat():
             'audio': audio_base64
         })
     
-    # Store logs for each username.
+    # ユーザーネームごとにログを保管
     if username not in logs:
         logs[username] = []
         logs[username].append({'role': 'user', 'content': text})
     else:
-    # Delete the oldest log if the number of logs exceeds 18.
+    # ログが18件を超えた場合は、古いログを削除
         if len(logs[username]) >= 18:
-            logs[username] = logs[username][-17:]  # Store last 17 logs
+            logs[username] = logs[username][-17:]  # 最新の17件を保持
 
-    # Log recognition information
     logs[username].append({'role': 'user', 'content': text})
 
-    app.logger.info("Recognizing of,{},{}".format(username, text))
+    logging.info("Recognizing of,{},{}".format(username, text))
+    #app.logger.info("Recognizing of,{},{}".format(username, text))
 
-    # Create messages for OpenAI API
     messages = [
         {'role': 'system', 'content': 'You are a helpful assistant.'},
         {'role': 'user', 'content': f'just return {EXIT_PHRASE} only'}
@@ -130,36 +121,33 @@ def chat():
         {'role': 'user', 'content': text}
     )
 
-    # Add user logs to messages
     if username in logs:
         messages += logs[username]
 
-    # Log user logs
-    app.logger.info("userlogs: {}, {}".format(username, logs[username]))
+    logging.info("userlogs: {}, {}".format(username, logs[username]))
+    #app.logger.info("userlogs: {}, {}".format(username, logs[username]))
     
     try:
-        # Make a request to OpenAI API for chat completion
         result = openai.ChatCompletion.create(
             model='gpt-3.5-turbo',
             messages=messages,
             max_tokens=1024
         )
     except RateLimitError:
-        return jsonify(text="Too much usage, please wait a moment.")
+        return jsonify(text="使い過ぎです、少し待ってください。")
     except ServiceUnavailableError as e:
-        return jsonify(text="The server is overloaded. Please wait a moment and try again.")
+        return jsonify(text="サーバーが過負荷です。少し待って再度試してください。")
     except APIConnectionError as e:
-        return jsonify(text="An error occurred during communication. Please wait a moment and try again.")
+        return jsonify(text="通信中にエラーが発生しました。少し待って再度試してください。")
     except Exception as e:
-        return jsonify(text="An unexpected error has occurred. Please contact the support team for assistance.")
+        return jsonify(text="予期しないエラーが発生しました。担当者に問い合わせてください。")
     else:
-        # Extract Assistant's response text
         response_text = result['choices'][0]['message']['content']
-        # Add the response content of the Assistant to the log.
+        # Assistantの応答内容をログに追加
         logs[username].append({'role': 'assistant', 'content': response_text})
 
-    # Log Assistant's answer
-    app.logger.info("Answering for,{},{}".format(username, response_text))
+    logging.info("Answering for,{},{}".format(username, response_text))
+    #app.logger.info("Answering for,{},{}".format(username, response_text))
 
     # Encode the response audio to base64
     audio_base64 = base64.b64encode(synthesize_text(response_text)).decode('utf-8')
@@ -170,7 +158,10 @@ def chat():
     })
     #return response_text
 
-# Run the application if it is executed as the main script
+
 if __name__ == '__main__':
-    app.run(port=8080)
-    #app.run()
+	#app.run()
+	
+    public_url = ngrok.connect(5000)
+    print(f"ngrok URL: {public_url}")
+    app.run(port=5000)
